@@ -294,6 +294,7 @@
     "continue": "Continue",
     "error": "An unexpected error occurred",
     "prompt": "Enter your account name to continue",
+    "sso": "Sign in with SSO",
     "title": "Sign in",
     "usernamePlaceholder": "user@example.com"
   },

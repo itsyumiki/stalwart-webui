@@ -10,6 +10,7 @@ interface ImportMetaEnv {
   readonly VITE_API_BASE_URL: string;
   readonly VITE_ACCESS_TOKEN: string;
   readonly VITE_OAUTH_SCOPES: string;
+  readonly VITE_OAUTH_DISCOVERY_ADDRESS?: string;
   readonly VITE_DEBUG_JMAP?: string;
   readonly VITE_DEBUG_FORMS?: string;
 }

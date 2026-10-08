@@ -29,6 +29,10 @@ jobs:
       - run: npx vitest run
 
       - run: npm run build
+        env:
+          # Single-domain fork: SSO-only login page. Override with the repo
+          # variable OAUTH_DISCOVERY_ADDRESS; set it empty to restore the form.
+          VITE_OAUTH_DISCOVERY_ADDRESS: ${{ vars.OAUTH_DISCOVERY_ADDRESS || '@yumiki.me' }}
 
       - name: Create webui.zip
         working-directory: dist

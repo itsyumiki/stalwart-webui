@@ -4,8 +4,14 @@
  * SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-SEL
  */
 
-import { describe, it, expect } from 'vitest';
-import { generateCodeVerifier, generateCodeChallenge } from './oauth';
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
+import {
+  generateCodeVerifier,
+  generateCodeChallenge,
+  getFixedDiscoveryAddress,
+  startAuthFlow,
+  startSsoFlow,
+} from './oauth';
 
 const UNRESERVED_RE = /^[A-Za-z0-9\-._~]+$/;
 
@@ -100,5 +106,73 @@ describe('generateCodeChallenge', () => {
         value: originalSubtle,
       });
     }
+  });
+});
+
+describe('auth flows', () => {
+  const discovery = {
+    authorization_endpoint: 'https://sso.example.com/auth',
+    token_endpoint: 'https://sso.example.com/token',
+    scopes_supported: ['openid', 'email', 'profile', 'offline_access'],
+  };
+  let fetchMock: ReturnType<typeof vi.fn>;
+  let redirected: string | null;
+  const originalLocation = window.location;
+
+  beforeEach(() => {
+    redirected = null;
+    fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => discovery });
+    vi.stubGlobal('fetch', fetchMock);
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        origin: 'https://mail.example.com',
+        pathname: '/login',
+        search: '',
+        set href(v: string) {
+          redirected = v;
+        },
+        get href() {
+          return redirected ?? '';
+        },
+      },
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
+  });
+
+  it('getFixedDiscoveryAddress is empty when unset and trimmed when set', () => {
+    expect(getFixedDiscoveryAddress()).toBe('');
+    vi.stubEnv('VITE_OAUTH_DISCOVERY_ADDRESS', '  @example.com  ');
+    expect(getFixedDiscoveryAddress()).toBe('@example.com');
+  });
+
+  it('startAuthFlow discovers the typed name and sends login_hint and prompt=login', async () => {
+    await startAuthFlow('user@example.com');
+    expect(fetchMock.mock.calls[0][0]).toContain('/api/discover/user%40example.com');
+    const params = new URL(redirected!).searchParams;
+    expect(params.get('login_hint')).toBe('user@example.com');
+    expect(params.get('prompt')).toBe('login');
+  });
+
+  it('startSsoFlow discovers the configured address and sends no login_hint or prompt', async () => {
+    vi.stubEnv('VITE_OAUTH_DISCOVERY_ADDRESS', '@example.com');
+    await startSsoFlow();
+    expect(fetchMock.mock.calls[0][0]).toContain('/api/discover/%40example.com');
+    const url = new URL(redirected!);
+    expect(url.origin + url.pathname).toBe('https://sso.example.com/auth');
+    expect(url.searchParams.get('login_hint')).toBeNull();
+    expect(url.searchParams.get('prompt')).toBeNull();
+    expect(url.searchParams.get('code_challenge_method')).toBe('S256');
+    expect(url.searchParams.get('scope')).toBe('openid email profile offline_access');
+  });
+
+  it('startSsoFlow rejects when no address is configured', async () => {
+    await expect(startSsoFlow()).rejects.toThrow();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

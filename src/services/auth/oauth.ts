@@ -11,6 +11,15 @@ import i18n from '@/i18n';
 
 const SCOPES = import.meta.env.VITE_OAUTH_SCOPES as string | undefined;
 
+/**
+ * Optional build-time discovery address (e.g. `@example.com`). When set, the
+ * login page can offer a single SSO button instead of asking for an account
+ * name.
+ */
+export function getFixedDiscoveryAddress(): string {
+  return ((import.meta.env.VITE_OAUTH_DISCOVERY_ADDRESS as string | undefined) ?? '').trim();
+}
+
 const SESSION_PREFIX = 'stalwart-oauth-';
 
 interface DiscoveryResponse {
@@ -124,8 +133,32 @@ function getRedirectUri(): string {
   return `${window.location.origin}${basePath}/oauth/callback`;
 }
 
-export async function startAuthFlow(username: string, returnUrl?: string | null): Promise<void> {
-  const { authorization_endpoint, token_endpoint, end_session_endpoint, scopes_supported } = await discover(username);
+/** Interactive flow: the typed account name drives discovery and is sent as `login_hint`. */
+export function startAuthFlow(username: string, returnUrl?: string | null): Promise<void> {
+  return beginAuthFlow({ address: username, loginHint: username, prompt: 'login', returnUrl });
+}
+
+/**
+ * SSO-only flow: discovery uses the build-time address, and no `login_hint` or
+ * forced re-authentication is sent, so the provider can reuse its own session.
+ */
+export async function startSsoFlow(returnUrl?: string | null): Promise<void> {
+  const address = getFixedDiscoveryAddress();
+  if (!address) {
+    throw new Error(i18n.t('login.error', 'An unexpected error occurred'));
+  }
+  await beginAuthFlow({ address, returnUrl });
+}
+
+interface AuthFlowOptions {
+  address: string;
+  loginHint?: string;
+  prompt?: string;
+  returnUrl?: string | null;
+}
+
+async function beginAuthFlow({ address, loginHint, prompt, returnUrl }: AuthFlowOptions): Promise<void> {
+  const { authorization_endpoint, token_endpoint, end_session_endpoint, scopes_supported } = await discover(address);
 
   const codeVerifier = generateCodeVerifier();
   const { challenge: codeChallenge, method: codeChallengeMethod } = await generateCodeChallenge(codeVerifier);
@@ -158,9 +191,9 @@ export async function startAuthFlow(username: string, returnUrl?: string | null)
     code_challenge: codeChallenge,
     code_challenge_method: codeChallengeMethod,
     state,
-    login_hint: username,
-    prompt: 'login',
   });
+  if (loginHint) params.set('login_hint', loginHint);
+  if (prompt) params.set('prompt', prompt);
 
   let scope: string;
   if (SCOPES && SCOPES.length > 0) {

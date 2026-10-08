@@ -1,7 +1,7 @@
 {
   "name": "stalwart-webui",
   "private": true,
-  "version": "1.0.11",
+  "version": "1.0.12",
   "description": "Stalwart WebUI",
   "type": "module",
   "scripts": {

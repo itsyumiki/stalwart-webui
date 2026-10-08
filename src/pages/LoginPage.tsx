@@ -14,7 +14,7 @@ import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { startAuthFlow } from '@/services/auth/oauth';
+import { getFixedDiscoveryAddress, startAuthFlow, startSsoFlow } from '@/services/auth/oauth';
 
 export default function LoginPage() {
   const { t } = useTranslation();
@@ -23,19 +23,27 @@ export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // SSO-only when a discovery address is built in. `?manual=1` brings back the
+  // account-name form as a break-glass path if the SSO provider is unavailable.
+  const manual = new URLSearchParams(location.search).get('manual') === '1';
+  const ssoOnly = getFixedDiscoveryAddress() !== '' && !manual;
 
   useDocumentTitle(t('login.title', 'Sign in'));
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     const trimmed = username.trim();
-    if (!trimmed) return;
+    if (!ssoOnly && !trimmed) return;
 
     setError(null);
     setLoading(true);
 
     try {
-      await startAuthFlow(trimmed, originalPath);
+      if (ssoOnly) {
+        await startSsoFlow(originalPath);
+      } else {
+        await startAuthFlow(trimmed, originalPath);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : t('login.error', 'An unexpected error occurred'));
       setLoading(false);
@@ -51,22 +59,24 @@ export default function LoginPage() {
 
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <p className="text-center text-sm text-muted-foreground">
-                {t('login.prompt', 'Enter your account name to continue')}
-              </p>
-              <Input
-                id="username"
-                type="text"
-                autoComplete="username"
-                autoFocus
-                placeholder={t('login.usernamePlaceholder', 'user@example.com')}
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                disabled={loading}
-                aria-label={t('login.prompt', 'Enter your account name to continue')}
-              />
-            </div>
+            {!ssoOnly && (
+              <div className="space-y-2">
+                <p className="text-center text-sm text-muted-foreground">
+                  {t('login.prompt', 'Enter your account name to continue')}
+                </p>
+                <Input
+                  id="username"
+                  type="text"
+                  autoComplete="username"
+                  autoFocus
+                  placeholder={t('login.usernamePlaceholder', 'user@example.com')}
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  disabled={loading}
+                  aria-label={t('login.prompt', 'Enter your account name to continue')}
+                />
+              </div>
+            )}
 
             {error && (
               <p className="text-sm text-destructive" role="alert">
@@ -74,12 +84,17 @@ export default function LoginPage() {
               </p>
             )}
 
-            <Button type="submit" className="w-full" disabled={loading || !username.trim()}>
+            <Button
+              type="submit"
+              className="w-full"
+              autoFocus={ssoOnly}
+              disabled={loading || (!ssoOnly && !username.trim())}
+            >
               {loading ? (
                 <Loader2 className="animate-spin" />
               ) : (
                 <>
-                  {t('login.continue', 'Continue')}
+                  {ssoOnly ? t('login.sso', 'Sign in with SSO') : t('login.continue', 'Continue')}
                   <ArrowRight />
                 </>
               )}

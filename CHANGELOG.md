@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [1.0.12] - 2026-10-08
+
+### Added
+- `VITE_OAUTH_DISCOVERY_ADDRESS`: SSO-only login page with a single button, plus `/login?manual=1` fallback.
+
+### Changed
+
+### Fixed
+
 ## [1.0.11] - 2026-09-15
 
 ### Added

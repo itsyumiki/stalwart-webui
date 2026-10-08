@@ -73,6 +73,7 @@ Configuration is done through Vite environment variables. Copy or edit `.env.dev
 VITE_API_BASE_URL=http://localhost:443
 VITE_ACCESS_TOKEN=
 VITE_OAUTH_SCOPES=
+VITE_OAUTH_DISCOVERY_ADDRESS=
 ```
 
 | Variable | Description |
@@ -80,6 +81,7 @@ VITE_OAUTH_SCOPES=
 | `VITE_API_BASE_URL` | URL of the Stalwart server. Used for all API requests during development. In production builds (when empty or unset) requests are relative to the current origin. |
 | `VITE_ACCESS_TOKEN` | When set, skips the OAuth flow entirely and uses this token for all requests. Useful for local development and testing. |
 | `VITE_OAUTH_SCOPES` | Optional OAuth scopes. Omitted from the authorization request when empty. |
+| `VITE_OAUTH_DISCOVERY_ADDRESS` | Optional, single-domain deployments. An address such as `@example.com` used for OAuth discovery. When set, the login page hides the account-name field and shows a single "Sign in with SSO" button; no `login_hint` or `prompt=login` is sent. Build-time only. Open `/login?manual=1` to get the account-name form back if the SSO provider is down. |
 
 ### OAuth client ID
 
